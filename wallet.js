@@ -1,6 +1,7 @@
 
 const btcjs = require('bitcoinjs-lib');
 const bigi = require('bigi');
+const dhttp = require('dhttp/200');
 var key_pair;
 var address;
 
@@ -24,6 +25,34 @@ function import_addr(wif){
 function get_utxos(){
     //TODO
     //something to blockchain.info etc?
+    //OR: it could get the whole history of transactions and derive utxos from there
+    // Single Address
+
+    // https://blockchain.info/es/rawaddr/$bitcoin_address
+    // Address can be base58 or hash160
+
+    //returns json with array of transactions
+
+    /////////////////////////OR:
+
+    // Unspent outputs
+
+    // https://blockchain.info/es/unspent?active=$address
+
+    //NOTE: tx_hash is byte_reversed
+    
+    let _url = 'https://blockchain.info/es/unspent?active=' + address;
+    
+    dhttp({
+	method: 'GET',
+	url: _url,
+	json: true
+    }, function (err, res){
+	if (err) throw "unable to connect to blockchain.info";
+
+	return res["unspent_outputs"];
+    })
+    
     return [];
 }
 

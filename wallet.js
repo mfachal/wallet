@@ -4,15 +4,15 @@ const bigi = require('bigi');
 const r2 = require('r2');
 var key_pair;
 var address;
-var utxos;
 
 //create a key pair and address
 //pw : string : is the passphrase for generating the keys
 function make_addr(pw) {
     let hash = btcjs.crypto.sha256(pw);
     let pvtkey = bigi.fromBuffer(hash);
-    key_pair = new btcjs.ECPair(d);
+    key_pair = new btcjs.ECPair(pvtkey);
     address = key_pair.getAddress();
+    return address;
 }
 
 
@@ -23,14 +23,29 @@ function import_addr(wif){
     address = key_pair.getAddress();
 }
 
+//takes string representing the hash
+function reverse_byte_order(hash){
+    let reversed_hash = "";
+    for (let i = hash.length-1; i > 0; i -=2){
+	let buf = hash[i].concat(hash[i-1]);
+	reversed_hash.concat(buf);
+    }
+    return buf;
+}
+
 //takes array of outputs according to blockchain.info format
 //returns array of {decoded_hash, vout, sequence, scriptsig}
 function decode_unspents(outs){
+    let res = []
     for (let i = 0; i < outs.length; i++){
-	
-
+	let j = {hash: reverse_byte_order(outs[i].tx_hash),
+		 vout: outs[i].value,                       //???
+		 sequence: 0,                               //???
+		 script: outs[i].script
+		};
+	res.push(j);
     }
-
+    return res;
 }
 
 async function get_utxos(of){
@@ -73,27 +88,32 @@ function utxos_suming(utxos, amount){
     return [utxos, x];
 }
 
+async function send(tx){
+    //TODO
+    await r2.post(/*network*/, txb.build().toHex());
+    return;
+}
+
 //1-to-1 transaction
 //from : string : 
 //to : string :
 //amount : int : amount in satoshis to send
 //fee : int : miner fee
-function transfer(from, to, amount, fee){
+async function transfer(from, to, amount, fee){
     let tx = new btcjs.TransactionBuilder(/*network*/);
 
-    let change = btcjs.ECPair.makeRandom(/**/);
+    let change = btcjs.ECPair.makeRandom(/**/); //shouldn't there be some kind of hash/etc. here?
     
-    let utxos = get_utxos(from); //function to get UTXOs (TODO)
+    let utxos = await get_utxos(from); //function to get UTXOs (TODO)
+    //maybe it's better to store them in a cache somewhere instead of going all the time to the server
     //utxos is an array of UTXOs
 
     if (utxos.length == 0) throw "no utxos for transaction"
     
     let [utxos_used, sum] = utxos_suming(utxos, amount + fee);
-
-//  if (utxos_used.length == 0) throw "no utxos for transaction";
     
     for (let x in utxos_used){
-	tx.addInput(x.txId, x.vout);
+	tx.addInput(x.hash, x.vout);
     }
 
     tx.addOutput(change.getAddress(), sum - amount - fee);
@@ -103,9 +123,5 @@ function transfer(from, to, amount, fee){
 	tx.sign(i, utxos_used[i]);
     }
 
-    send(tx);
-}
-
-function save_to_file(){
-
+    await send(tx);
 }

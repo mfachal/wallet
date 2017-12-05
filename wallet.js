@@ -1,9 +1,10 @@
 
 const btcjs = require('bitcoinjs-lib');
 const bigi = require('bigi');
-const dhttp = require('dhttp/200');
+const r2 = require('r2');
 var key_pair;
 var address;
+var utxos;
 
 //create a key pair and address
 //pw : string : is the passphrase for generating the keys
@@ -22,38 +23,27 @@ function import_addr(wif){
     address = key_pair.getAddress();
 }
 
-function get_utxos(){
+//takes array of outputs according to blockchain.info format
+//returns array of {decoded_hash, vout, sequence, scriptsig}
+function decode_unspents(outs){
+    for (let i = 0; i < outs.length; i++){
+	
+
+    }
+
+}
+
+async function get_utxos(of){
     //TODO
-    //something to blockchain.info etc?
-    //OR: it could get the whole history of transactions and derive utxos from there
-    // Single Address
-
-    // https://blockchain.info/es/rawaddr/$bitcoin_address
-    // Address can be base58 or hash160
-
-    //returns json with array of transactions
-
-    /////////////////////////OR:
-
     // Unspent outputs
-
     // https://blockchain.info/es/unspent?active=$address
+    //NOTE: tx_hash is byte reversed
+    
+    let _url = 'https://blockchain.info/es/unspent?active=' + of;
+    let json_unspents = await r2(_url).json;
 
-    //NOTE: tx_hash is byte_reversed
-    
-    let _url = 'https://blockchain.info/es/unspent?active=' + address;
-    
-    dhttp({
-	method: 'GET',
-	url: _url,
-	json: true
-    }, function (err, res){
-	if (err) throw "unable to connect to blockchain.info";
-
-	return res["unspent_outputs"];
-    })
-    
-    return [];
+    let unspents = decode_unspents(json_unspents.unspent_outputs); //array of {hash, vout (whatever it is), sequence, scriptsig}, ready for addInput
+    return unspents;
 }
 
 //-1 if tx_a.value < tx_b, 0 if equal, 1 if not
@@ -87,7 +77,8 @@ function utxos_suming(utxos, amount){
 //from : string : 
 //to : string :
 //amount : int : amount in satoshis to send
-function transfer(from, to, amount){
+//fee : int : miner fee
+function transfer(from, to, amount, fee){
     let tx = new btcjs.TransactionBuilder(/*network*/);
 
     let change = btcjs.ECPair.makeRandom(/**/);
@@ -113,8 +104,6 @@ function transfer(from, to, amount){
     }
 
     send(tx);
-
-    
 }
 
 function save_to_file(){

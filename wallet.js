@@ -43,13 +43,15 @@ function decode_unspents(outs){
 #if DEBUG
     console.log("outs.length: ", outs.length);
 #endif
-    for (let i = 0; i <= outs.length; i++){
+    for (let i = 0; i < outs.length; i++){
 	let j = {hash: reverse_byte_order(outs[i].tx_hash),
 		 vout: outs[i].value,                       //???
 		 sequence: 0,                               //???
 		 script: outs[i].script
 		};
-	console.log("jijiji", j);
+#if DEBUG
+	console.log("j: ", j);
+#endif
 	res.push(j);
     }
     return res;
@@ -64,26 +66,14 @@ async function get_utxos(of){
     let _url = 'https://blockchain.info/es/unspent?active=' + of;
     let request_answer = await r2(_url).text;
 #if DEBUG
-    console.log("request_anser: ");
-    console.log(request_answer);
-    console.log("type: ");
-    console.log(typeof request_answer);
+    console.log("request_answer: ", request_answer);
+    console.log("type: ", typeof request_answer);
 #endif
     
     try {
 	return decode_unspents(JSON.parse(request_answer).unspent_outputs);
     } catch (e) {
-	return decode_unspents(
-	    {unspent_outputs:[
-		    {
-			tx_age:"1322659106",
-			tx_hash:"e6452a2cb71aa864aaa959e647e7a4726a22e640560f199f79b56b5502114c37",
-			tx_index:"12790219",
-			tx_output_n:"0",
-			script:"76a914641ad5051edd97029a003fe9efb29359fcee409d88ac",
-			value:"5000661330"
-		    }
-		]}.unspent_outputs);
+	return {};
     }
     // let json_unspents = await r2(_url).json;
 
@@ -143,7 +133,7 @@ async function transfer(from, to, amount, fee){
     let [utxos_used, sum] = utxos_suming(utxos, amount + fee);
     
     for (let x in utxos_used){
-	tx.addInput(x.hash, x.vout);
+	tx.addInput(x.hash, x.vout /*, sequence , script*/);
     }
 
     tx.addOutput(change.getAddress(), sum - amount - fee);
@@ -158,12 +148,12 @@ async function transfer(from, to, amount, fee){
 
 //main (entry point)
 let a = make_addr("a13213123");
-console.log("a: " + a);
+console.log("a: " , a);
 hola(a);
+hola("134ZnmvWpGDGSwU6AnkgSEqP3kZ2cKqruh");
 
 
 async function hola(b){
     let f = await get_utxos(b);
-    console.log("f: ");
-    console.log(f);
+    console.log("f: ", f);
 }

@@ -5,6 +5,8 @@ const r2 = require('r2');
 var key_pair;
 var address;
 
+#define DEBUG 1
+
 //create a key pair and address
 //pw : string : is the passphrase for generating the keys
 function make_addr(pw) {
@@ -26,23 +28,28 @@ function import_addr(wif){
 //takes string representing the hash
 function reverse_byte_order(hash){
     let reversed_hash = "";
+    let i = hash.length - 1;
     for (let i = hash.length-1; i > 0; i -=2){
-	let buf = hash[i].concat(hash[i-1]);
-	reversed_hash.concat(buf);
+	let buf = hash[i-1].concat(hash[i]);
+	reversed_hash = reversed_hash.concat(buf);
     }
-    return buf;
+    return reversed_hash;
 }
 
 //takes array of outputs according to blockchain.info format
 //returns array of {decoded_hash, vout, sequence, scriptsig}
 function decode_unspents(outs){
     let res = []
-    for (let i = 0; i < outs.length; i++){
+#if DEBUG
+    console.log("outs.length: ", outs.length);
+#endif
+    for (let i = 0; i <= outs.length; i++){
 	let j = {hash: reverse_byte_order(outs[i].tx_hash),
 		 vout: outs[i].value,                       //???
 		 sequence: 0,                               //???
 		 script: outs[i].script
 		};
+	console.log("jijiji", j);
 	res.push(j);
     }
     return res;
@@ -55,10 +62,33 @@ async function get_utxos(of){
     //NOTE: tx_hash is byte reversed
     
     let _url = 'https://blockchain.info/es/unspent?active=' + of;
-    let json_unspents = await r2(_url).json;
+    let request_answer = await r2(_url).text;
+#if DEBUG
+    console.log("request_anser: ");
+    console.log(request_answer);
+    console.log("type: ");
+    console.log(typeof request_answer);
+#endif
+    
+    try {
+	return decode_unspents(JSON.parse(request_answer).unspent_outputs);
+    } catch (e) {
+	return decode_unspents(
+	    {unspent_outputs:[
+		    {
+			tx_age:"1322659106",
+			tx_hash:"e6452a2cb71aa864aaa959e647e7a4726a22e640560f199f79b56b5502114c37",
+			tx_index:"12790219",
+			tx_output_n:"0",
+			script:"76a914641ad5051edd97029a003fe9efb29359fcee409d88ac",
+			value:"5000661330"
+		    }
+		]}.unspent_outputs);
+    }
+    // let json_unspents = await r2(_url).json;
 
-    let unspents = decode_unspents(json_unspents.unspent_outputs); //array of {hash, vout (whatever it is), sequence, scriptsig}, ready for addInput
-    return unspents;
+    // let unspents = decode_unspents(json_unspents.unspent_outputs); //array of {hash, vout (whatever it is), sequence, scriptsig}, ready for addInput
+    // return unspents;
 }
 
 //-1 if tx_a.value < tx_b, 0 if equal, 1 if not
@@ -90,7 +120,7 @@ function utxos_suming(utxos, amount){
 
 async function send(tx){
     //TODO
-    await r2.post(/*network*/, txb.build().toHex());
+    //await r2.post(/*network*/, txb.build().toHex());
     return;
 }
 
@@ -124,4 +154,16 @@ async function transfer(from, to, amount, fee){
     }
 
     await send(tx);
+}
+
+//main (entry point)
+let a = make_addr("a13213123");
+console.log("a: " + a);
+hola(a);
+
+
+async function hola(b){
+    let f = await get_utxos(b);
+    console.log("f: ");
+    console.log(f);
 }

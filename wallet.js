@@ -73,12 +73,18 @@ async function get_utxos(of){
     try {
 	return decode_unspents(JSON.parse(request_answer).unspent_outputs);
     } catch (e) {
-	return {};
+#if DEBUG
+	return [{"tx_age":"1322659106",
+		"tx_hash":"e6452a2cb71aa864aaa959e647e7a4726a22e640560f199f79b56b5502114c37",
+		"tx_index":"12790219",
+		"tx_output_n":"0",
+		"script":"76a914641ad5051edd97029a003fe9efb29359fcee409d88ac",
+		"value":"5000661330"
+		}];
+#endif
+	
+	return [];
     }
-    // let json_unspents = await r2(_url).json;
-
-    // let unspents = decode_unspents(json_unspents.unspent_outputs); //array of {hash, vout (whatever it is), sequence, scriptsig}, ready for addInput
-    // return unspents;
 }
 
 //-1 if tx_a.value < tx_b, 0 if equal, 1 if not
@@ -91,21 +97,28 @@ function sort_tx(tx_a, tx_b){
 //utxos : array of transactions : unused transaction outputs for minting into a new transaction
 //amount : int : desired amount of money
 //should privilege smaller amounts
-function utxos_suming(utxos, amount){
-    utxos.sort(sort_tx);
+function utxos_suming(_utxos, amount){
+#if DEBUG
+    _utxos.push({tx_hash: "aaaa", value: 1});
+    console.log("_utxos: ", _utxos);
+    console.log("_utxos.length: ", _utxos.length);
+    console.log("typeof _utxos: ", typeof _utxos);
+#endif
+    if (_utxos === []) throw "aaa";
+    _utxos = _utxos.sort(sort_tx);
     let x = 0;
     let res = [];
     let i = 0;
 
-    while (i < utxos.length && x < amount){
-	res.push(utxos[i]);
-	x = x + utxos[i].amount;
+    while (i < _utxos.length && x < amount){
+	res.push(_utxos[i]);
+	x = x + _utxos[i].amount;
 	i++;
     }
     
     if (x < amount) throw "insufficient money in utxos";
     
-    return [utxos, x];
+    return [_utxos, x];
 }
 
 async function send(tx){
@@ -128,9 +141,12 @@ async function transfer(from, to, amount, fee){
     //maybe it's better to store them in a cache somewhere instead of going all the time to the server
     //utxos is an array of UTXOs
 
-    if (utxos.length == 0) throw "no utxos for transaction"
-    
-    let [utxos_used, sum] = utxos_suming(utxos, amount + fee);
+    if (utxos.length == 0) throw "no utxos for transaction";
+
+#if DEBUG
+    console.log("utxos.length: ", utxos.length);
+#endif
+    let [utxos_used, sum] = utxos_suming(await utxos, amount + fee);
     
     for (let x in utxos_used){
 	tx.addInput(x.hash, x.vout /*, sequence , script*/);
@@ -143,17 +159,28 @@ async function transfer(from, to, amount, fee){
 	tx.sign(i, utxos_used[i]);
     }
 
+#if DEBUG
+    return tx;
+#else
     await send(tx);
+#endif
 }
 
 //main (entry point)
 let a = make_addr("a13213123");
 console.log("a: " , a);
-hola(a);
-hola("134ZnmvWpGDGSwU6AnkgSEqP3kZ2cKqruh");
+//get_utxos_test(a);
+//get_utxos_test("134ZnmvWpGDGSwU6AnkgSEqP3kZ2cKqruh");
 
+transfer_test();
 
-async function hola(b){
+async function get_utxos_test(b){
     let f = await get_utxos(b);
     console.log("f: ", f);
+}
+
+async function transfer_test(){
+    let t = await transfer(address, address, 1, 1);
+    console.log("t: ", await t);
+
 }

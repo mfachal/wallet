@@ -126,6 +126,9 @@ function utxos_suming(_utxos, amount){
 async function send(tx){
     //TODO
     //await r2.post(/*network*/, txb.build().toHex());
+
+    await r2.post("https://blockchain.info/pushtx", txb.build().toHex());
+    
     return;
 }
 

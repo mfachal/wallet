@@ -14,7 +14,7 @@ var address;
 function make_addr(pw) {
     let hash = btcjs.crypto.sha256(pw);
     let pvtkey = bigi.fromBuffer(hash);
-    key_pair = new btcjs.ECPair(pvtkey);
+    key_pair = new btcjs.ECPair(pvtkey, null,{network: btcjs.networks.testnet});
     address = key_pair.getAddress();
     return address;
 }
@@ -23,7 +23,7 @@ function make_addr(pw) {
 //import key pair and address
 //wif : string : is the WIF wallet
 function import_addr(wif){
-    key_pair = btcjs.ECPair.fromWIF(wif);
+    key_pair = btcjs.ECPair.fromWIF(wif, btcjs.networks.testnet);
     address = key_pair.getAddress();
 }
 
@@ -42,19 +42,16 @@ function reverse_byte_order(hash){
 //returns array of {decoded_hash, vout, sequence, scriptsig}
 function decode_unspents(outs){
     let res = []
-#if DEBUG
-    console.log("outs.length: ", outs.length);
-#endif
     for (let i = 0; i < outs.length; i++){
-	let j = {hash: reverse_byte_order(outs[i].tx_hash),
-		 vout: outs[i].tx_output_n,                 //???
-		 sequence: 0,                               //???
-		 script: outs[i].script,
-		 value: outs[i].value
-		};
-#if DEBUG
-	console.log("j: ", j);
-#endif
+	// let j = {hash: reverse_byte_order(outs[i].tx_hash),
+	// 	 vout: outs[i].tx_output_n,
+	// 	 sequence: 0,
+	// 	 script: outs[i].script,
+	// 	 value: outs[i].value
+	// 	};
+
+	let j = outs[i];
+	//j.tx_hash = reverse_byte_order(j.tx_hash);
 	res.push(j);
     }
     return res;
@@ -66,19 +63,18 @@ async function get_utxos(of){
     // https://blockchain.info/es/unspent?active=$address
     //NOTE: tx_hash is byte reversed
     
-    let _url = 'https://blockchain.info/es/unspent?active=' + of;
+    let _url = 'https://testnet.blockchain.info/es/unspent?active=' + of;
     let request_answer = await r2(_url).text;
-#if DEBUG
-    console.log("request_answer: ", request_answer);
-    console.log("type: ", typeof request_answer);
-#endif
     
     try {
+	console.log("aaaa: ", decode_unspents(JSON.parse(request_answer).unspent_outputs));
 	return decode_unspents(JSON.parse(request_answer).unspent_outputs);
     } catch (e) {
-#if DEBUG
-	return [];
-#endif
+// 	if (request_answer === "Service Unavailable"){
+// 	    _url = 'testnet.blockexplorer.com/api/addr/' + of + '/utxo';
+// 	    request_answer = await r2(_url).text;
+	// }
+	
 	return [];
     }
 }
@@ -94,18 +90,9 @@ function sort_tx(tx_a, tx_b){
 //amount : int : desired amount of money
 //should privilege smaller amounts
 function utxos_suming(_utxos, amount){
-#if DEBUG
-   // _utxos.push({tx_hash: "aaaa", vout: 1});
-    console.log("_utxos: ", _utxos);
-    console.log("_utxos.length: ", _utxos.length);
-    console.log("typeof _utxos: ", typeof _utxos);
-#endif
     if (_utxos === []) throw "aaa";
+
     _utxos.sort(sort_tx);
-#if DEBUG
-    console.log("a3");
-    console.log("_utxos: ", _utxos);
-#endif
     let x = 0;
     let res = [];
     let i = 0;
@@ -127,8 +114,7 @@ async function send(tx){
     //TODO
     //await r2.post(/*network*/, txb.build().toHex());
 
-    await r2.post("https://blockchain.info/pushtx", txb.build().toHex());
-    
+    let as = await r2.put("https://blockchain.info/pushtx", tx.build().toHex()); //???
     return;
 }
 
@@ -138,37 +124,22 @@ async function send(tx){
 //amount : int : amount in satoshis to send
 //fee : int : miner fee
 async function transfer(from, to, amount, fee){
-    let tx = new btcjs.TransactionBuilder(// btcjs.networks.testnet
-    );
+    let tx = new btcjs.TransactionBuilder(network);
 
-    
-    
-    let change = btcjs.ECPair.makeRandom(// btcjs.networks.testnet
-    );
+    let change = btcjs.ECPair.makeRandom(network);
     
     let utxos = await get_utxos(from); //function to get UTXOs (TODO)
     //maybe it's better to store them in a cache somewhere instead of going all the time to the server
     //utxos is an array of UTXOs
 
     if (utxos.length == 0) throw "no utxos for transaction";
-    let [utxos_used, sum] = utxos_suming(await utxos, amount + fee);
-
-#if DEBUG
-    console.log("s: ", sum);
-    console.log("a3.5");
-#endif
+    let [utxos_used, sum] = utxos_suming(utxos, amount + fee);
     
     for (let x of utxos_used){
-#if DEBUG
-	console.log("utxos_used: ", utxos_used);
-	console.log("X: ", x);
-#endif
-	tx.addInput(x.hash, x.vout , null, Buffer.from(x.script)
+	let sbuf = Buffer(x.script, 'hex');
+	let add = btcjs.address.fromOutputScript(sbuf, network).toString();
+	tx.addInput(Buffer(x.tx_hash, 'hex'), x.tx_output_n //, null, Buffer.from(x.script)
 		   ); //vout is actually the index of the output
-	
-#if DEBUG
-    console.log("a3.99");
-#endif
     }
 
 #if DEBUG
@@ -177,34 +148,23 @@ async function transfer(from, to, amount, fee){
     console.log("change_addr: ", change.getAddress());
     console.log("change.script: ", change.script);
     
-    tx.addOutput('1JtK9CQw1syfWj1WtFMWomrYdV3W2tWBF9', 18000)
-
     console.log("change.getAddress: ", change.getAddress);
     console.log("s: ", sum);
     console.log("a: ", amount);
     console.log("f: ", fee);
     console.log("s-a-f: ", sum-amount-fee);
 #endif
-    tx.addOutput(change.getAddress(), sum - amount - fee); //sum-amount-fee
-
-    // function addOutput (e, i) { transaction.addOutput(toAddresses[i], amounts[i]); }
-    // toAddresses.map(addOutput);
-    
+    tx.addOutput(from, sum - amount - fee); //sum-amount-fee
     tx.addOutput(to, amount);
-
-#if DEBUG
-    console.log("kp: ", key_pair);
-#endif
     
     for (let i = 0; i < utxos.length; i++){
 	tx.sign(i, key_pair);
     }
 
 #if DEBUG
-    return tx;
-#else
-    await send(tx);
+//    await send(tx);
 #endif
+    return tx;
 }
 
 
@@ -215,97 +175,29 @@ async function transfer(from, to, amount, fee){
 //     //something with d, deciding on input
 // });
 
-let a = make_addr("correct horse battery staple");
+let a = make_addr("mochilamochila");
+var network = btcjs.networks.testnet;
 console.log("a: " , a);
 //get_utxos_test(a);
 //get_utxos_test("134ZnmvWpGDGSwU6AnkgSEqP3kZ2cKqruh");
 
-transfer_test();
+transfer_test(a);
+fdfd(a);
+
+async function fdfd(a){
+    let j = await transfer(a, "2N1BaF6bZwetgUAgbuiTj5GmFmGmnDjbC3A", 64998000, 1000)
+    console.log(j.build().toHex());
+}
 
 async function get_utxos_test(b){
     let f = await get_utxos(b);
     console.log("f: ", f);
 }
 
-async function test_transfer_1(a, b){
-    let tx = new btcjs.TransactionBuilder(// btcjs.networks.testnet
-    );
-
-    let key_pair = btcjs.ECPair.fromWIF('L1uyy5qTuGrVXrmrsvHWHgVzW9kKdrp27wBC7Vs6nZDTF2BRUVwy');
-    let from = key_pair.getAddress();
-    let to = key_pair.getAddress();
-    let amount = 1;
-    let fee = 1;
-    let change = btcjs.ECPair.makeRandom(// btcjs.networks.testnet
-    );
-    
-    let utxos = await get_utxos(from); //function to get UTXOs (TODO)
-    //maybe it's better to store them in a cache somewhere instead of going all the time to the server
-    //utxos is an array of UTXOs
-
-    if (utxos.length == 0) throw "no utxos for transaction";
-    let [utxos_used, sum] = utxos_suming(await utxos, amount + fee);
-
-#if DEBUG
-    console.log("s: ", sum);
-    console.log("a3.5");
-#endif
-    
-    for (let x of utxos_used){
-#if DEBUG
-	console.log("utxos_used: ", utxos_used);
-	console.log("X: ", x);
-#endif
-	tx.addInput(x.hash, x.vout , null, Buffer.from(x.script)
-		   ); //vout is actually the index of the output
-	
-#if DEBUG
-    console.log("a3.99");
-#endif
-    }
-
-#if DEBUG
-    console.log("a4");
-    console.log("to: ", to);
-    console.log("change_addr: ", change.getAddress());
-    console.log("change.script: ", change.script);
-    
-    //    tx.addOutput('1JtK9CQw1syfWj1WtFMWomrYdV3W2tWBF9', 18000)
-
-    console.log("change.getAddress: ", change.getAddress);
-    console.log("s: ", sum);
-    console.log("a: ", amount);
-    console.log("f: ", fee);
-    console.log("s-a-f: ", sum-amount-fee);
-#endif
-    tx.addOutput(change.getAddress(), sum - amount - fee); //sum-amount-fee
-
-    // function addOutput (e, i) { transaction.addOutput(toAddresses[i], amounts[i]); }
-    // toAddresses.map(addOutput);
-    
-    tx.addOutput(to, amount);
-
-#if DEBUG
-    console.log("kp: ", key_pair);
-#endif
-    
-    for (let i = 0; i < utxos.length; i++){
-	tx.sign(i, key_pair);
-    }
-
-#if DEBUG
-    return tx;
-#else
-    await send(tx);
-#endif
-}
-
-async function transfer_test(){
-    try{
-    let a = await test_transfer_1(1, 1);
-    console.log("a: ", a);
-    } catch (e) {}
-    let t = await transfer("134ZnmvWpGDGSwU6AnkgSEqP3kZ2cKqruh", "134ZnmvWpGDGSwU6AnkgSEqP3kZ2cKqruh", 1, 1); // 
+async function transfer_test(ad){
+    let t = await transfer(ad, ad, 1, 1000);
     console.log("t: ", await t);
-
+    console.log("ins: ", t.tx.ins);
+    console.log("outs: ", t.tx.outs);
+    console.log("hex: ", t.build().toHex());
 }

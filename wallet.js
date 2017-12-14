@@ -2,13 +2,11 @@
 const btcjs = require('bitcoinjs-lib');
 const bigi = require('bigi');
 const r2 = require('r2');
-const dhttp = require('dhttp');
-const http = require('http');
 const request = require('request');
 var key_pair;
 var address;
 
-#define DEBUG 1
+#define DEBUG 0
 
 //create a key pair and address
 //pw : string : is the passphrase for generating the keys
@@ -97,7 +95,9 @@ async function send(tx){
 	url: 'https://testnet.blockchain.info/pushtx',
 	body: 'tx='+tx.build().toHex()
     }, (e, r, b) => {if (!e){
+#if DEBUG
 	console.log(r);
+#endif
 	console.log(b);
     } else {
 	console.log(e);}});
@@ -134,11 +134,7 @@ async function transfer(from, to, amount, fee){
     for (let i = 0; i < utxos_used.length; i++){
 	tx.sign(i, key_pair);
     }
-    console.log(tx.tx.outs);
-    
-#if DEBUG
     await send(tx);
-#endif
     return tx;
 }
 

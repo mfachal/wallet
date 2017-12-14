@@ -1,0 +1,31 @@
+funcionalidades
+===============
+
+básicas:
+[x]nueva cuenta
+[x]transferir
+[x]balance (btc)
+[ ]balance (usd)
+[ ]interacción por consola
+[ ]permitir transacciones a varios (to es un array)
+[ ]obtener transacción
+[ ]obtener bloque
+
+servicio:
+[x]nueva cuenta
+[ ]firma de transacciones (hechas por otras aplicaciones) (servicio)
+  Lpedir interacción para esto
+[ ]guardar información del usuario (servicio)
+[ ]guardar bitcoins/utxos/etc (servicio)
+[ ]ver transacción guardada
+[x]balance (btc)
+[ ]básicamente no llamar a blockchain.info (guardar datos localmente)
+[ ]ver cómo manejar el tema de guardar localmente el tema sin bajar la blockchain completa
+  Lprobablemente guardar sólo las utxos, clave privada y algunas otras cosas
+  Lencriptado
+
+futuro:
+[ ]comunicación entre procesos android
+[ ]mejor separación servicio/wallet
+[ ]desktop, interactúa con el servicio
+[ ]UI/UX para wallet/desktop, servicio más como daemon?

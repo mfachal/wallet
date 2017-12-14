@@ -78,9 +78,9 @@ function utxos_suming(_utxos, amount){
     let i = 0;
 
     while (i < _utxos.length && x < amount){
-//	if (_utxos[i].value !== 0){
+	if (parseInt(_utxos[i].value) !== 0){
 	    res.push(_utxos[i]);
-	    x = x + parseInt(_utxos[i].value);
+	    x = x + parseInt(_utxos[i].value);}
 	i++;
     }
     
@@ -126,7 +126,7 @@ async function transfer(from, to, amount, fee){
     tx.addOutput(from, sum - amount - fee);
     tx.addOutput(to, amount);
     
-    for (let i = 0; i < utxos.length; i++){
+    for (let i = 0; i < utxos_used.length; i++){
 	tx.sign(i, key_pair);
     }
     console.log(tx.tx.outs);

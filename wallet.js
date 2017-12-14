@@ -3,7 +3,8 @@ const btcjs = require('bitcoinjs-lib');
 const bigi = require('bigi');
 const r2 = require('r2');
 const dhttp = require('dhttp');
-
+const http = require('http');
+const request = require('request');
 var key_pair;
 var address;
 
@@ -78,9 +79,9 @@ function utxos_suming(_utxos, amount){
     let i = 0;
 
     while (i < _utxos.length && x < amount){
-	if (parseInt(_utxos[i].value) !== 0){
+//	if (parseInt(_utxos[i].value) !== 0){
 	    res.push(_utxos[i]);
-	    x = x + parseInt(_utxos[i].value);}
+	    x = x + parseInt(_utxos[i].value);
 	i++;
     }
     
@@ -90,15 +91,19 @@ function utxos_suming(_utxos, amount){
 }
 
 async function send(tx){
-//    let as = await r2.post("https://blockchain.info/pushtx", tx.build().toHex()); //???
-    let r = await dhttp({
-        method: 'POST',
-        url: 'https://testnet.blockchain.info/pushtx',
-        body: 'tx='+tx.build().toHex()
-    });
+
+    let req = request.post({
+	headers: {'content-type' : 'application/x-www-form-urlencoded'},
+	url: 'https://testnet.blockchain.info/pushtx',
+	body: 'tx='+tx.build().toHex()
+    }, (e, r, b) => {if (!e){
+	console.log(r);
+	console.log(b);
+    } else {
+	console.log(e);}});
+
 #if DEBUG
-    console.log("hex: ", tx.build().toHex());
-    console.log("r: ", r);
+    console.log("r: ", req);
 #endif
     return;
 }
@@ -120,7 +125,7 @@ async function transfer(from, to, amount, fee){
 #if DEBUG
 	console.log(x);
 #endif
-	tx.addInput(Buffer(reverse_byte_order(x.tx_hash), 'hex'), x.tx_output_n);
+	tx.addInput(Buffer(x.tx_hash, 'hex'), x.tx_output_n);
     }
 
     tx.addOutput(from, sum - amount - fee);

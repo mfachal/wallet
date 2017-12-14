@@ -2,7 +2,7 @@
 const btcjs = require('bitcoinjs-lib');
 const bigi = require('bigi');
 const r2 = require('r2');
-const stdin = process.openStdin();
+const dhttp = require('dhttp');
 
 var key_pair;
 var address;
@@ -38,25 +38,6 @@ function reverse_byte_order(hash){
     return reversed_hash;
 }
 
-//takes array of outputs according to blockchain.info format
-//returns array of {decoded_hash, vout, sequence, scriptsig}
-function decode_unspents(outs){
-    let res = []
-    for (let i = 0; i < outs.length; i++){
-	// let j = {hash: reverse_byte_order(outs[i].tx_hash),
-	// 	 vout: outs[i].tx_output_n,
-	// 	 sequence: 0,
-	// 	 script: outs[i].script,
-	// 	 value: outs[i].value
-	// 	};
-
-	let j = outs[i];
-	//j.tx_hash = reverse_byte_order(j.tx_hash);
-	res.push(j);
-    }
-    return res;
-}
-
 async function get_utxos(of){
     //TODO
     // Unspent outputs
@@ -67,8 +48,7 @@ async function get_utxos(of){
     let request_answer = await r2(_url).text;
     
     try {
-	console.log("aaaa: ", decode_unspents(JSON.parse(request_answer).unspent_outputs));
-	return decode_unspents(JSON.parse(request_answer).unspent_outputs);
+	return JSON.parse(request_answer).unspent_outputs;
     } catch (e) {
 // 	if (request_answer === "Service Unavailable"){
 // 	    _url = 'testnet.blockexplorer.com/api/addr/' + of + '/utxo';
@@ -98,23 +78,28 @@ function utxos_suming(_utxos, amount){
     let i = 0;
 
     while (i < _utxos.length && x < amount){
-	res.push(_utxos[i]);
-	x = x + parseInt(_utxos[i].value);
+//	if (_utxos[i].value !== 0){
+	    res.push(_utxos[i]);
+	    x = x + parseInt(_utxos[i].value);
 	i++;
     }
     
     if (x < amount) throw "insufficient money in utxos";
 
-    console.log("s: ", x);
-    
     return [res, x];
 }
 
 async function send(tx){
-    //TODO
-    //await r2.post(/*network*/, txb.build().toHex());
-
-    let as = await r2.put("https://blockchain.info/pushtx", tx.build().toHex()); //???
+//    let as = await r2.post("https://blockchain.info/pushtx", tx.build().toHex()); //???
+    let r = await dhttp({
+        method: 'POST',
+        url: 'https://testnet.blockchain.info/pushtx',
+        body: 'tx='+tx.build().toHex()
+    });
+#if DEBUG
+    console.log("hex: ", tx.build().toHex());
+    console.log("r: ", r);
+#endif
     return;
 }
 
@@ -126,31 +111,28 @@ async function send(tx){
 async function transfer(from, to, amount, fee){
     let tx = new btcjs.TransactionBuilder(network);
 
-    let change = btcjs.ECPair.makeRandom(network);
-    
-    let utxos = await get_utxos(from); //function to get UTXOs (TODO)
-    //maybe it's better to store them in a cache somewhere instead of going all the time to the server
-    //utxos is an array of UTXOs
+    let utxos = await get_utxos(from);
 
     if (utxos.length == 0) throw "no utxos for transaction";
     let [utxos_used, sum] = utxos_suming(utxos, amount + fee);
     
     for (let x of utxos_used){
-	let sbuf = Buffer(x.script, 'hex');
-	let add = btcjs.address.fromOutputScript(sbuf, network).toString();
-	tx.addInput(Buffer(x.tx_hash, 'hex'), x.tx_output_n //, null, Buffer.from(x.script)
-		   ); //vout is actually the index of the output
+#if DEBUG
+	console.log(x);
+#endif
+	tx.addInput(Buffer(reverse_byte_order(x.tx_hash), 'hex'), x.tx_output_n);
     }
 
-    tx.addOutput(from, sum - amount - fee); //sum-amount-fee
+    tx.addOutput(from, sum - amount - fee);
     tx.addOutput(to, amount);
     
     for (let i = 0; i < utxos.length; i++){
 	tx.sign(i, key_pair);
     }
-
+    console.log(tx.tx.outs);
+    
 #if DEBUG
-//    await send(tx);
+    await send(tx);
 #endif
     return tx;
 }
@@ -175,8 +157,8 @@ console.log("a: " , a);
 //get_utxos_test(a);
 //get_utxos_test("134ZnmvWpGDGSwU6AnkgSEqP3kZ2cKqruh");
 // console.log(getBalance(a));
-// transfer_test(a);
-fdfd(a);
+transfer_test(a);
+//fdfd(a);
 
 async function fdfd(a){
     let b = await getBalance(a);
@@ -191,9 +173,10 @@ async function get_utxos_test(b){
 }
 
 async function transfer_test(ad){
+    console.log(ad);
     let t = await transfer(ad, ad, 1, 1000);
-    console.log("t: ", await t);
-    console.log("ins: ", t.tx.ins);
-    console.log("outs: ", t.tx.outs);
-    console.log("hex: ", t.build().toHex());
+//    console.log("t: ", await t);
+//    console.log("ins: ", t.tx.ins);
+//    console.log("outs: ", t.tx.outs);
+//    console.log("hex: ", t.build().toHex());
 }

@@ -142,18 +142,6 @@ async function transfer(from, to, amount, fee){
 		   ); //vout is actually the index of the output
     }
 
-#if DEBUG
-    console.log("a4");
-    console.log("to: ", to);
-    console.log("change_addr: ", change.getAddress());
-    console.log("change.script: ", change.script);
-    
-    console.log("change.getAddress: ", change.getAddress);
-    console.log("s: ", sum);
-    console.log("a: ", amount);
-    console.log("f: ", fee);
-    console.log("s-a-f: ", sum-amount-fee);
-#endif
     tx.addOutput(from, sum - amount - fee); //sum-amount-fee
     tx.addOutput(to, amount);
     
@@ -167,6 +155,12 @@ async function transfer(from, to, amount, fee){
     return tx;
 }
 
+async function getBalance(addr){
+    let _url = 'https://testnet.blockchain.info/es/rawaddr/' + addr;
+    let request_answer = await r2(_url).text;
+    let balance = JSON.parse(request_answer).final_balance;
+    return balance;    
+}
 
 
 //main (entry point)
@@ -180,13 +174,15 @@ var network = btcjs.networks.testnet;
 console.log("a: " , a);
 //get_utxos_test(a);
 //get_utxos_test("134ZnmvWpGDGSwU6AnkgSEqP3kZ2cKqruh");
-
-transfer_test(a);
+// console.log(getBalance(a));
+// transfer_test(a);
 fdfd(a);
 
 async function fdfd(a){
-    let j = await transfer(a, "2N1BaF6bZwetgUAgbuiTj5GmFmGmnDjbC3A", 64998000, 1000)
-    console.log(j.build().toHex());
+    let b = await getBalance(a);
+    console.log(b);
+    // let j = await transfer(a, "2N1BaF6bZwetgUAgbuiTj5GmFmGmnDjbC3A", 64998000, 1000)
+    // console.log(j.build().toHex());
 }
 
 async function get_utxos_test(b){

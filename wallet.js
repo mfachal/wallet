@@ -5,7 +5,7 @@ const r2 = require('r2');
 const request = require('request');
 var key_pair;
 var address;
-
+var network = btcjs.networks.testnet;
 #define DEBUG 0
 
 //create a key pair and address
@@ -122,9 +122,6 @@ async function transfer(from, to, amount, fee){
     let [utxos_used, sum] = utxos_suming(utxos, amount + fee);
     
     for (let x of utxos_used){
-#if DEBUG
-	console.log(x);
-#endif
 	tx.addInput(Buffer(x.tx_hash, 'hex'), x.tx_output_n);
     }
 
@@ -141,13 +138,84 @@ async function transfer(from, to, amount, fee){
 async function getBalance(addr){
     let _url = 'https://testnet.blockchain.info/es/rawaddr/' + addr;
     let request_answer = await r2(_url).text;
-    let balance = JSON.parse(request_answer).final_balance;
-    return balance;    
+    try {
+	let balance = JSON.parse(request_answer).final_balance;
+	return balance;
+    } catch (e) {
+	return request_answer;
+    }
 }
 
+function usage(){
+    console.log("usage: transfer <PASSWORD> <TO> <AMOUNT> <FEE>");
+    console.log("       balance <ADDR>");
+    console.log("       address <PASSWORD>");
+    return
+}
 
-//main (entry point)
+async function handle_cases(args){
+    switch (args[0]) {
+    case "transfer":{
+	if (!args[1] || !args[2] || !args[3] || !args[4]){
+	    usage();
+	    return;}
+	let addr = make_addr(args[1]);
+	await transfer(addr, args[2], args[3], args[4]);
+	break;}
+    case "getbalance":{
+	if (!args[1]){
+	    usage();
+	    return;}
+	let balance = await getBalance(args[1]);
+	console.log(balance);
+	break;}
+    case "address":{
+	if (!args[1]){
+	    usage();
+	    return;}
+	let addr = make_addr(args[1]);
+	console.log(addr);
+	break;}
+    default:{
+	usage();
+	break;}
+    }
+    return;
+}
 
+async function main() {
+    if (process.argv[2] === "console") {
+	// const readline = require('readline');
+	// const rl = readline.createInterface({
+	//     input: process.stdin,
+	//     output: process.stdout
+	// });
+	// var exit = 0;
+	
+	// while (!exit){
+	//     rl.on('line', (input) => {
+	// 	if (input == "exit"){
+	// 	    exit = 1;
+	// 	}
+	// 	let cmd = to_array(input);
+	// 	handle_cases(cmd);
+	//     });
+	// }
+	// rl.close();
+    }
+    // if (process.argv[2] === "ol") {
+    try {
+	await handle_cases(process.argv.slice(2));
+    } catch (e) {
+	console.log(e);}
+    return;
+    // }
+    
+}
+
+main()
+
+#if DEBUG
 // stdin.addListener("data", function (d) {
 //     //something with d, deciding on input
 // });
@@ -176,8 +244,9 @@ async function get_utxos_test(b){
 async function transfer_test(ad){
     console.log(ad);
     let t = await transfer(ad, ad, 1, 1000);
-//    console.log("t: ", await t);
-//    console.log("ins: ", t.tx.ins);
-//    console.log("outs: ", t.tx.outs);
-//    console.log("hex: ", t.build().toHex());
+    //    console.log("t: ", await t);
+    //    console.log("ins: ", t.tx.ins);
+    //    console.log("outs: ", t.tx.outs);
+    //    console.log("hex: ", t.build().toHex());
 }
+#endif

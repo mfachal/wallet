@@ -7,7 +7,7 @@ básicas:
 [x]balance (btc)
 [ ]balance (usd)
 [x]interacción por consola
-[ ]permitir transacciones a varios (to es un array)
+[x]permitir transacciones a varios (to es un array)
 [ ]obtener transacción
 [ ]obtener bloque
 

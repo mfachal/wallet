@@ -6,7 +6,6 @@ const request = require('request');
 var key_pair;
 var address;
 var network = btcjs.networks.testnet;
-#define DEBUG 0
 
 //create a key pair and address
 //pw : string : is the passphrase for generating the keys
@@ -88,16 +87,9 @@ async function send(tx){
 	url: 'https://testnet.blockchain.info/pushtx',
 	body: 'tx='+tx.build().toHex()
     }, (e, r, b) => {if (!e){
-#if DEBUG
-	console.log(r);
-#endif
 	console.log(b);
     } else {
 	console.log(e);}});
-
-#if DEBUG
-    console.log("r: ", req);
-#endif
     return;
 }
 
@@ -184,33 +176,11 @@ async function handle_cases(args){
 }
 
 async function main() {
-    if (process.argv[2] === "console") {
-	// const readline = require('readline');
-	// const rl = readline.createInterface({
-	//     input: process.stdin,
-	//     output: process.stdout
-	// });
-	// var exit = 0;
-	
-	// while (!exit){
-	//     rl.on('line', (input) => {
-	// 	if (input == "exit"){
-	// 	    exit = 1;
-	// 	}
-	// 	let cmd = to_array(input);
-	// 	handle_cases(cmd);
-	//     });
-	// }
-	// rl.close();
-    }
-    // if (process.argv[2] === "ol") {
     try {
 	await handle_cases(process.argv.slice(2));
     } catch (e) {
 	console.log(e);}
     return;
-    // }
-    
 }
 
 main();

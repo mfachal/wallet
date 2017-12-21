@@ -29,3 +29,85 @@ futuro:
 [ ]mejor separación servicio/wallet
 [ ]desktop, interactúa con el servicio
 [ ]UI/UX para wallet/desktop, servicio más como daemon?
+
+=========================================================================================================================
+
+simular trezor u otro HSM por software siguiendo las ideas de aqui: https://github.com/trezor/connect en principio hacer:
+- Generar claves
+- Exportar xpub
+- Firmar una transaccion bitcoin
+GitHub
+trezor/connect
+connect - :eslabón: A platform for easy integration of TREZOR into 3rd party services
+ 
+=========================================================================================================================
+
+[11:00] 
+Seguir el esquema BIP32. Tiene que entender esto. (editado)
+
+
+alejoamiras [11:03] 
+Sí necesitan yo tengo un par de 'códigos hechos' para el tema de trezor.
+
+
+[11:03] 
+No están comentados ni nada ... pero 'sirven'
+
+
+sebastian.wain [11:27] 
+Vos alejo tenes (o viene) tests?
+
+
+[11:27] 
+Matias esta haciendo una simulacion del Trezor en software (editado)
+
+
+[11:28] 
+Entonces tiene que tener dos codigos, uno que simula el hardware y solo interactura con el cliente y otro que usa ese aparatito y lo testea
+
+
+[11:28] 
+La funcionalidad por ahora va a hacer la que pusimos arriba: generar claves, exportar xpub, firmar transaccion.
+
+
+[11:29] 
+Algo que no se es como detecta el trezor de que blockchain es la transaccion
+
+
+alejoamiras [11:33] 
+No la detecta
+
+
+[11:33] 
+Le pasas el path
+
+
+[11:33] 
+De ahí deriva la xpub, etc, y firma
+
+
+[11:34] 
+Viene un sólo test básico, pero que no cubre las funcionalidades que Mati necesita - creo que justo hice los ejemplos esos qué pedís jaja.
+
+Para el que le interese el firmwarde del Trezor esta online en C: https://github.com/trezor/trezor-mcu
+Esta muy bien comentado, por ejemplo aca esta la parte de signing https://github.com/trezor/trezor-mcu/blob/7cd99459053a59523aa942ce848ccde6dce99bc2/firmware/signing.c
+
+https://github.com/trezor/trezor-crypto/
+https://github.com/MetaMask/metamask-extension
+
+==============
+
+@Matias Fachal fijate sí te sirve para crear private key (https://github.com/trapp/ethereum-bip44)
+https://github.com/bitpay/bitcore-lib :cara_ligeramente_sonriente:
+GitHub
+trapp/ethereum-bip44
+ethereum-bip44 - Library to generate Ethereum addresses from a hierarchical deterministic wallet according to the BIP44 standard.
+ 
+ GitHub
+bitpay/bitcore-lib
+bitcore-lib - A pure and powerful JavaScript Bitcoin library
+ 
+
+
+[12:05] 
+Además, también está como derivar las cosas con su path ahí

@@ -2,14 +2,21 @@
 const btcjs = require('bitcoinjs-lib');
 const bigi = require('bigi');
 const readline = require('readline');
+const ipc = require('node-ipc');
+
 var login = false;
 var key_pair;
 var address;
 var network = btcjs.networks.testnet;
 
-async function login(){
+async function login(pass){
     //when it gets asked for login this program asks for login from the user
-    let pw = await ask_user();
+    if (!pass){
+	let pw = await ask_user();
+	if (!pw) {
+	    throw "no pw";
+	}
+    }
     let hash = btcjs.crypto.sha256(pw);
     let pvtkey = bigi.fromBuffer(hash);
     key_pair = new btcjs.ECPair(pvtkey, null,{network: btcjs.networks.testnet});
@@ -32,7 +39,7 @@ async function ask_user(){
 	return pw;
     });
 
-    
+    return;
 }
 
 function sign(tx){
@@ -47,10 +54,21 @@ function sign(tx){
     
 }
 
-function receive(){
-    //listener
-
-
-
-    
-}
+ipc.config.id = 'btcjs-serv';
+ipc.config.retry = 1500;
+ipc.config.silent = true;
+ipc.serve(
+    function(){
+	ipc.server.on('login', function(data){
+	    login(data);
+	});
+	ipc.server.on('sign', function(data){
+	    sign(JSON.parse(data));
+	});
+	ipc.server.on('socket.disconnected', function{
+	    key_pair = undefined;
+	    logged = false;
+	});
+    }
+);
+ipc.server.start();

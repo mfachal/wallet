@@ -177,14 +177,35 @@ async function handle_cases(args){
 }
 
 async function main() {
-//    ipc.connectTo('btcjs-serv');
+    ipc.config.id = 'btcjsserv';
+    ipc.config.retry = 1500;
+    ipc.config.silent = true;
+    
+    ipc.connectTo('btcjsserv', function() {
+	console.log("connected");
+	ipc.of.btcjsserv.emit("debug");
+	ipc.of.btcjsserv.emit("login", {pw: "holacarola"});
+
+	let tx = new btcjs.TransactionBuilder(network);
+
+	key_pair = btcjs.ECPair.makeRandom(network);
+
+	//test
+	
+	console.log(tx);
+
+	// tx.sign(0, key_pair);
+	
+	ipc.of.btcjsserv.emit("sign", tx);
+
+    });
 
     
-    try {
-	await handle_cases(process.argv.slice(2));
-    } catch (e) {
-	console.log(e);}
-    return;
+    // try {
+    // 	await handle_cases(process.argv.slice(2));
+    // } catch (e) {
+    // 	console.log(e);}
+    // return;
 }
 
 main();

@@ -3,7 +3,7 @@ const btcjs = require('bitcoinjs-lib');
 const bigi = require('bigi');
 const readline = require('readline');
 const ipc = require('node-ipc');
-
+const rlsync = require('readline-sync');
 var logged = false;
 var key_pair;
 var address;
@@ -11,47 +11,33 @@ var network = btcjs.networks.testnet;
 
 async function login(pass){
     //when it gets asked for login this program asks for login from the user
-    if (!pass || !pass.pw){
-	let pw = await ask_user();
+    let pw = "";
+    if (!logged && (!pass || !pass.pw)){
+	pw = await ask_user();
 	if (!pw) {
 	    throw "no pw";
 	}
+    } else {
+	pw = pass.pw;
     }
-    let hash = btcjs.crypto.sha256(pass.pw);
+    let hash = btcjs.crypto.sha256(pw);
     let pvtkey = bigi.fromBuffer(hash);
     key_pair = new btcjs.ECPair(pvtkey, null,{network: btcjs.networks.testnet});
     address = key_pair.getAddress();
+    console.log('logged in');
     return address;
 }
 
 async function ask_user(){
-    const rl = readline.createInterface({
-	input: process.stdin,
-	output: process.stdout
-    }); //later change this to some ux/ui/etc
-
-    var pw = "";
-    
-    rl.question('please input password: ', (answer) => {
-	// TODO: Log the answer somewhere?
-	pw = answer;
-	rl.close();
-	return pw;
-    });
-
-    return;
+    let pw = rlsync.question('input confirmation: ');
+    return pw
 }
 
-function sign(tx){
-
-    console.log(tx);
-
+async function sign(tx){
     if (!logged){
-	// login();		// 
+	await login(undefined);		// 
     }
-
     try {
-
 	let txb = new btcjs.TransactionBuilder(network);
 	txb.inputs = tx.inputs;
 	txb.tx = tx.tx;
@@ -59,6 +45,8 @@ function sign(tx){
 	for (let i = 0; i < tx.inputs.length; i++){
 	    txb.sign(i, key_pair);
 	}
+
+	return txb;
     } catch (e) {
 	console.log(e);
     }
@@ -78,12 +66,17 @@ ipc.serve(
 	
 	ipc.server.on('login', function(data){
 	    console.log('login: ', data);
-	    //	    login(data);
+	    login(data);
 	});
-	ipc.server.on('sign', function(data){
+	ipc.server.on('sign', async function(data, socket){
 //	    console.log('sign: ', data);
-	    sign(data);
-	    
+	    let tx = await sign(data);
+	    console.log(tx);
+	    ipc.server.emit(
+		//signed transaction
+		socket,
+		"signed", tx
+	    );
 	});
 	ipc.server.on('socket.disconnected', function(){
 	    key_pair = undefined;

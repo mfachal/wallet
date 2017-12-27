@@ -120,10 +120,9 @@ async function transfer(from, to, amount, fee){
 	console.log(amount[i]);
 	tx.addOutput(to[i], parseInt(amount[i]));
     }
+
+    //ipc.btcjsserv.emit
     
-    for (let i = 0; i < utxos_used.length; i++){
-	tx.sign(i, key_pair);
-    }
     await send(tx);
     return tx;
 }
@@ -183,23 +182,25 @@ async function main() {
     
     ipc.connectTo('btcjsserv', function() {
 	console.log("connected");
+
+	ipc.of.btcjsserv.on("signed", function (data) {
+	    console.log(data);	    
+	})
+
+// #if DEBUG	
 	ipc.of.btcjsserv.emit("debug");
 	ipc.of.btcjsserv.emit("login", {pw: "holacarola"});
 
+	
 	let tx = new btcjs.TransactionBuilder(network);
 
 	key_pair = btcjs.ECPair.makeRandom(network);
 
 	//test
-	
-	console.log(tx);
-
 	// tx.sign(0, key_pair);
 	
 	ipc.of.btcjsserv.emit("sign", tx);
-
     });
-
     
     // try {
     // 	await handle_cases(process.argv.slice(2));

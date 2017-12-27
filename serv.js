@@ -11,6 +11,8 @@ var network = btcjs.networks.testnet;
 
 async function login(pass){
     //when it gets asked for login this program asks for login from the user
+    console.log(logged);
+    console.log(pass);
     let pw = "";
     if (!logged && (!pass || !pass.pw)){
 	pw = await ask_user();
@@ -24,6 +26,7 @@ async function login(pass){
     let pvtkey = bigi.fromBuffer(hash);
     key_pair = new btcjs.ECPair(pvtkey, null,{network: btcjs.networks.testnet});
     address = key_pair.getAddress();
+    logged = true;
     console.log('logged in');
     return address;
 }

@@ -11,8 +11,6 @@ var network = btcjs.networks.testnet;
 
 async function login(pass){
     //when it gets asked for login this program asks for login from the user
-    console.log(logged);
-    console.log(pass);
     let pw = "";
     if (!logged && (!pass || !pass.pw)){
 	pw = await ask_user();
@@ -27,18 +25,27 @@ async function login(pass){
     key_pair = new btcjs.ECPair(pvtkey, null,{network: btcjs.networks.testnet});
     address = key_pair.getAddress();
     logged = true;
-    console.log('logged in');
+    console.log('logged in, ', address);
     return address;
 }
 
 async function ask_user(){
-    let pw = rlsync.question('input confirmation: ');
+    let pw = rlsync.question('input password: ');
     return pw
 }
 
 async function sign(tx){
     if (!logged){
-	await login(undefined);		// 
+	await login(undefined);
+    } else {
+	let conf = rlsync.question('please input your password (for confirmation):');
+	let hash = btcjs.crypto.sha256(conf);
+	let pvtkey = bigi.fromBuffer(hash);
+	k_pair = new btcjs.ECPair(pvtkey, null,{network: btcjs.networks.testnet});
+	let addr = k_pair.getAddress();
+	if (addr != address) {
+	    throw "error in confirmation";
+	}
     }
     try {
 	let txb = new btcjs.TransactionBuilder(network);
@@ -66,15 +73,22 @@ ipc.serve(
 	ipc.server.on('debug', function(data){
 	    console.log('received: ', data);
 	});
-	
-	ipc.server.on('login', function(data){
-	    console.log('login: ', data);
-	    login(data);
+	ipc.server.on('login', async function(data, socket){
+	    await login(data);
+	    ipc.server.emit(
+		//signed transaction
+		socket,
+		"logged", address
+	    );
+	    
 	});
+
+	ipc.server.on('address', function(data, socket){
+	    ipc.server.emit(socket, 'logged', address);
+	});
+	
 	ipc.server.on('sign', async function(data, socket){
-//	    console.log('sign: ', data);
 	    let tx = await sign(data);
-	    console.log(tx);
 	    ipc.server.emit(
 		//signed transaction
 		socket,

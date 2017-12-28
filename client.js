@@ -4,19 +4,19 @@ const bigi = require('bigi');
 const r2 = require('r2');
 const request = require('request');
 const ipc = require('node-ipc');
-var key_pair;
+
 var address;
 var network = btcjs.networks.testnet;
 
 //create a key pair and address
 //pw : string : is the passphrase for generating the keys
-function make_addr(pw) {
-    let hash = btcjs.crypto.sha256(pw);
-    let pvtkey = bigi.fromBuffer(hash);
-    key_pair = new btcjs.ECPair(pvtkey, null,{network: btcjs.networks.testnet});
-    address = key_pair.getAddress();
-    return address;
-}
+// function make_addr(pw) {
+//     let hash = btcjs.crypto.sha256(pw);
+//     let pvtkey = bigi.fromBuffer(hash);
+//     key_pair = new btcjs.ECPair(pvtkey, null,{network: btcjs.networks.testnet});
+//     address = key_pair.getAddress();
+//     return address;
+// }
 
 
 //import key pair and address
@@ -39,6 +39,7 @@ function reverse_byte_order(hash){
 
 async function get_utxos(of){
     let _url = 'https://testnet.blockchain.info/es/unspent?active=' + of;
+
     let request_answer = await r2(_url).text;
     
     try {
@@ -82,7 +83,6 @@ function utxos_suming(_utxos, amount){
 }
 
 async function send(tx){
-
     let req = request.post({
 	headers: {'content-type' : 'application/x-www-form-urlencoded'},
 	url: 'https://testnet.blockchain.info/pushtx',
@@ -99,32 +99,33 @@ async function send(tx){
 //to : string :
 //amount : int : amount in satoshis to send
 //fee : int : miner fee
-async function transfer(from, to, amount, fee){
+async function transfer(to, amount, fee){
     let tx = new btcjs.TransactionBuilder(network);
 
-    let utxos = await get_utxos(from);
+    console.log(fee);
+    
+    let utxos = await get_utxos(address);
 
     if (utxos.length == 0) throw "no utxos for transaction";
     
-    let sumamount = amount.reduce((x,y) => (x+y));
-    let [utxos_used, sum] = utxos_suming(utxos, sumamount + fee);
+    // let sumamount = amount.reduce((x,y) => (x+y));
+    // let totalfee = fee.reduce((x, y) => (x + y))
+    let [utxos_used, sum] = utxos_suming(utxos, amount + fee);
     
     for (let x of utxos_used){
 	tx.addInput(Buffer(x.tx_hash, 'hex'), x.tx_output_n);
     }
 
-    tx.addOutput(from, sum - sumamount - fee);
-    
-    for (let i = 0; i < to.length && i < amount.length; i++){
-	console.log(to[i]);
-	console.log(amount[i]);
-	tx.addOutput(to[i], parseInt(amount[i]));
-    }
+    tx.addOutput(address, sum - parseInt(amount) - parseInt(fee));
+    tx.addOutput(to, parseInt(amount));
+    // for (let i = 0; i < to.length && i < amount.length; i++){
+    // 	console.log(to[i]);
+    // 	console.log(amount[i]);
+    // 	tx.addOutput(to[i], parseInt(amount[i]));
+    // }
 
-    //ipc.btcjsserv.emit
+    await ipc.of.btcjsserv.emit('sign', tx);
     
-    await send(tx);
-    return tx;
 }
 
 async function getBalance(addr){
@@ -139,7 +140,7 @@ async function getBalance(addr){
 }
 
 function usage(){
-    console.log("usage: transfer <PASSWORD> <TO1>[,<TO2>[,...]] <AMOUNT> <FEE1>,...");
+    console.log("usage: transfer <PASSWORD> <TO1>[,<TO2>[,...]] <AMOUNT1>,... <FEE1>,...");
     console.log("       balance <ADDR>");
     console.log("       address <PASSWORD>");
     return
@@ -148,11 +149,14 @@ function usage(){
 async function handle_cases(args){
     switch (args[0]) {
     case "transfer":{
-	if (!args[1] || !args[2] || !args[3] || !args[4]){
+	if (!args[1] || !args[2] || !args[3]){
 	    usage();
 	    return;}
-	let addr = make_addr(args[1]);
-	await transfer(addr, args[2].split(','), args[3].split(','), args[4]);
+	// let addr = make_addr(args[1]);
+	await transfer(args[1]// .split(',')
+		       , args[2]// .split(',')
+		       , args[3]// .split(',')
+		      );
 	break;}
     case "getbalance":{
 	if (!args[1]){
@@ -165,8 +169,7 @@ async function handle_cases(args){
 	if (!args[1]){
 	    usage();
 	    return;}
-	let addr = make_addr(args[1]);
-	console.log(addr);
+	ipc.of.btcjsserv.emit('login', {pw: args[1]});
 	break;}
     default:{
 	usage();
@@ -180,33 +183,39 @@ async function main() {
     ipc.config.retry = 1500;
     ipc.config.silent = true;
     
-    ipc.connectTo('btcjsserv', function() {
+    await ipc.connectTo('btcjsserv', async function() {
 	console.log("connected");
 
-	ipc.of.btcjsserv.on("signed", function (data) {
-	    console.log(data);	    
-	})
+	ipc.of.btcjsserv.on("signed", async function (data) {
+	    console.log(data);
+   	    await send(data);
+	    return data;
+	});
 
-// #if DEBUG	
-	ipc.of.btcjsserv.emit("debug");
-	ipc.of.btcjsserv.emit("login", {pw: "holacarola"});
+	ipc.of.btcjsserv.on("logged", async function (data){
+	    address = data;
+	    console.log("logged address: ", address);
 
+
+	try {
+     	    await handle_cases(process.argv.slice(2));
+	} catch (e) {
+     	    console.log(e);}
+	return;
+	    
+	});
+
+	await ipc.of.btcjsserv.emit("address", {});
 	
-	let tx = new btcjs.TransactionBuilder(network);
-
-	key_pair = btcjs.ECPair.makeRandom(network);
-
-	//test
-	// tx.sign(0, key_pair);
+	// try {
+     	//     await handle_cases(process.argv.slice(2));
+	// } catch (e) {
+     	//     console.log(e);}
+	// return;
 	
-	ipc.of.btcjsserv.emit("sign", tx);
     });
-    
-    // try {
-    // 	await handle_cases(process.argv.slice(2));
-    // } catch (e) {
-    // 	console.log(e);}
-    // return;
+
+    return;
 }
 
 main();

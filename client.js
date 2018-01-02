@@ -108,21 +108,21 @@ async function transfer(to, amount, fee){
 
     if (utxos.length == 0) throw "no utxos for transaction";
     
-    // let sumamount = amount.reduce((x,y) => (x+y));
-    // let totalfee = fee.reduce((x, y) => (x + y))
-    let [utxos_used, sum] = utxos_suming(utxos, amount + fee);
+    let sumamount = amount.reduce((x,y) => (x+y));
+    let totalfee = fee.reduce((x, y) => (x + y))
+    let [utxos_used, sum] = utxos_suming(utxos, sumamount + totalfee);
     
     for (let x of utxos_used){
 	tx.addInput(Buffer(x.tx_hash, 'hex'), x.tx_output_n);
     }
 
-    tx.addOutput(address, sum - parseInt(amount) - parseInt(fee));
-    tx.addOutput(to, parseInt(amount));
-    // for (let i = 0; i < to.length && i < amount.length; i++){
-    // 	console.log(to[i]);
-    // 	console.log(amount[i]);
-    // 	tx.addOutput(to[i], parseInt(amount[i]));
-    // }
+    // tx.addOutput(address, sum - parseInt(amount) - parseInt(fee));
+    // tx.addOutput(to, parseInt(amount));
+    for (let i = 0; i < to.length && i < amount.length; i++){
+    	console.log(to[i]);
+    	console.log(amount[i]);
+    	tx.addOutput(to[i], parseInt(amount[i]));
+    }
 
     await ipc.of.btcjsserv.emit('sign', tx);
     
@@ -153,9 +153,9 @@ async function handle_cases(args){
 	    usage();
 	    return;}
 	// let addr = make_addr(args[1]);
-	await transfer(args[1]// .split(',')
-		       , args[2]// .split(',')
-		       , args[3]// .split(',')
+	await transfer(args[1].split(',')
+		       , args[2].split(',')
+		       , args[3].split(',')
 		      );
 	break;}
     case "getbalance":{
@@ -191,22 +191,20 @@ async function main() {
    	    await send(data);
 	    return data;
 	});
-
+	
 	ipc.of.btcjsserv.on("logged", async function (data){
 	    address = data;
 	    console.log("logged address: ", address);
-
-
-	try {
-     	    await handle_cases(process.argv.slice(2));
-	} catch (e) {
-     	    console.log(e);}
-	return;
-	    
 	});
 
-	await ipc.of.btcjsserv.emit("address", {});
-	
+	ipc.of.btcjsserv.on("address", async function (data){
+	    address = data;
+	    try {
+     		await handle_cases(process.argv.slice(2));
+	    } catch (e) {
+     		console.log(e);}
+	    return;}
+	);
 	// try {
      	//     await handle_cases(process.argv.slice(2));
 	// } catch (e) {
@@ -215,6 +213,8 @@ async function main() {
 	
     });
 
+    ipc.of.btcjsserv.emit("address", {});
+    
     return;
 }
 

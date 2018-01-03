@@ -26,8 +26,13 @@ async function login(pass){
     }
     let hash = btcjs.crypto.sha256(pw);
     let pvtkey = bigi.fromBuffer(hash);
+
     key_pair = new btcjs.ECPair(pvtkey, null, {network: network});
     address = key_pair.getAddress();
+    
+    key_pair = cryptojs.AES.encrypt(key_pair.toString(), pw);
+    key_pair = JSON.parse(node.toString(cryptojs.enc.Utf8));
+
     logged = true;
     console.log('logged in, ', address);
     return address;
@@ -36,6 +41,9 @@ async function login(pass){
 async function ask_user(){
     let pw = rlsync.question('input password: ');
     //this should unencrypt key_pair/hd_node
+    let node = cryptojs.AES.decrypt(hd_node.toString(), pw);
+    hd_node = JSON.parse(node.toString(cryptojs.enc.Utf8));
+    
     return pw
 }
 
@@ -51,9 +59,9 @@ async function get_node(mnemonic){
 	console.log("this is your mnemonic: ", mnemonic);
     }
     
-    let seed = bip39.mnemonicToSeed(mnemonic);
+    let seed = bip39.mnemonicToSeed(mnemonic /*, password*/);
     hd_node = btcjs.HDNode.fromSeedBuffer(seed);
-    
+    return get_pair()
 }
 
 async function get_pair(path){
@@ -61,25 +69,27 @@ async function get_pair(path){
 	path = "m/0'/0/0";
     }
     key_pair = hd_node.derivePath(path);
+    address = key_pair.getAddress();
+    login = true;
+    return key_pair;
 }
 
 async function sign(tx){
     if (!logged){
 	await login(undefined);
     } else {
+
 	let conf = rlsync.question('please input your password (for confirmation):');
 	let hash = btcjs.crypto.sha256(conf);
-	let pvtkey = bigi.fromBuffer(hash);
-	k_pair = new btcjs.ECPair(pvtkey, null,{network: btcjs.networks.testnet});
+	let pvtkey = bigi.fromBuffer(hash);	
+	
+	k_pair = new btcjs.ECPair(pvtkey, null, {network: btcjs.networks.testnet});
 	let addr = k_pair.getAddress();
 	if (addr != address) {
 	    throw "error in confirmation";
 	}
-
-	//deserialize instead
-	//how to seed words from pw?
-	
     }
+
     try {
 	let txb = new btcjs.TransactionBuilder(network);
 	txb.inputs = tx.inputs;
@@ -94,10 +104,6 @@ async function sign(tx){
 	console.log(e);
     }
 }
-
-get_node();
-get_pair();
-
 
 ipc.config.id = 'btcjsserv';
 ipc.config.retry = 1500;
@@ -120,6 +126,10 @@ ipc.serve(
 	    
 	});
 
+	ipc.server.on('get_node', async function(data, socket){
+	    get_node(data);
+	});
+	
 	ipc.server.on('address', function(data, socket){
 	    ipc.server.emit(socket, 'address', address);
 	});
@@ -139,11 +149,3 @@ ipc.serve(
     }
 );
 ipc.server.start();
-
-// // Encrypt 
-// var ciphertext = cryptojs.AES.encrypt(mnemonic, 'secret key 123');
-// // console.log(ciphertext);
-// // Decrypt 
-// var bytes  = cryptojs.AES.decrypt(ciphertext.toString(), 'secret key 123');
-// var plaintext = bytes.toString(cryptojs.enc.Utf8);
-// // console.log('mnemonic was: ', plaintext); // 

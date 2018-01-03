@@ -41,8 +41,8 @@ async function login(pass){
 async function ask_user(){
     let pw = rlsync.question('input password: ');
     //this should unencrypt key_pair/hd_node
-    let node = cryptojs.AES.decrypt(hd_node.toString(), pw);
-    hd_node = JSON.parse(node.toString(cryptojs.enc.Utf8));
+    let kp = cryptojs.AES.decrypt(key_pair.toString(), pw);
+    key_pair = JSON.parse(node.toString(cryptojs.enc.Utf8));
     
     return pw
 }
@@ -61,6 +61,7 @@ async function get_node(mnemonic){
     
     let seed = bip39.mnemonicToSeed(mnemonic /*, password*/);
     hd_node = btcjs.HDNode.fromSeedBuffer(seed);
+
     return get_pair()
 }
 
@@ -77,19 +78,20 @@ async function get_pair(path){
 async function sign(tx){
     if (!logged){
 	await login(undefined);
-    } else {
-
-	let conf = rlsync.question('please input your password (for confirmation):');
-	let hash = btcjs.crypto.sha256(conf);
-	let pvtkey = bigi.fromBuffer(hash);	
-	
-	k_pair = new btcjs.ECPair(pvtkey, null, {network: btcjs.networks.testnet});
-	let addr = k_pair.getAddress();
-	if (addr != address) {
-	    throw "error in confirmation";
-	}
     }
 
+    let conf = rlsync.question('please input your password (for confirmation):');
+    let kp = cryptojs.AEES.decrypt(key_pair.toString(), pw);
+    key_pair = JSON.parse(node.toString(cryptojs.enc.Utf8));
+    // let hash = btcjs.crypto.sha256(conf);
+    // let pvtkey = bigi.fromBuffer(hash);	
+    
+    // k_pair = new btcjs.ECPair(pvtkey, null, {network: btcjs.networks.testnet});
+    // let addr = k_pair.getAddress();
+    // if (addr != address) {
+    //     throw "error in confirmation";
+    // }
+    
     try {
 	let txb = new btcjs.TransactionBuilder(network);
 	txb.inputs = tx.inputs;
@@ -98,6 +100,8 @@ async function sign(tx){
 	for (let i = 0; i < tx.inputs.length; i++){
 	    txb.sign(i, key_pair);
 	}
+
+	key_pair = cryptojs.AES.encrypt(key_pair.toString(), conf);
 
 	return txb;
     } catch (e) {

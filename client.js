@@ -196,15 +196,17 @@ async function main() {
 	    address = data;
 	    console.log("logged address: ", address);
 	});
-
+	
 	ipc.of.btcjsserv.on("address", async function (data){
 	    address = data;
 	    try {
      		await handle_cases(process.argv.slice(2));
 	    } catch (e) {
      		console.log(e);}
-	    return;}
-	);
+	    return;});
+
+
+	
 	// try {
      	//     await handle_cases(process.argv.slice(2));
 	// } catch (e) {

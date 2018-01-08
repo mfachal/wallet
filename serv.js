@@ -6,14 +6,14 @@ const ipc = require('node-ipc');
 const rlsync = require('readline-sync');
 const bip39 = require('bip39');
 const crypto = require('crypto');
-
+const util = require('util');
 var logged = false;
 var key_pair;
 var hd_node;
 var address;
 var network = btcjs.networks.testnet;
 
-const encrypted_kp = crypto.createCipher('aes192', '');
+var encrypted_kp = crypto.createCipher('aes192', '');
 
 async function login(pass){
     //when it gets asked for login this program asks for login from the user
@@ -43,8 +43,22 @@ async function login(pass){
     // console.log(b.getAddress());
     
 //    key_pair = cryptojs.AES.encrypt(key_pair.toString(), pw);
-//   key_pair = JSON.parse(key_pair.toString(cryptojs.enc.Utf8));
-   
+    //   key_pair = JSON.parse(key_pair.toString(cryptojs.enc.Utf8));
+
+    var encripted_kp = await crypto.createCipher('aes-256-ecb', pass.pw);
+    // console.log(util.inspect(key_pair));
+    let encripted = await encripted_kp.update(JSON.stringify(util.inspect(key_pair, false, null)), 'utf8', 'hex');
+    encripted += await encripted_kp.final('hex');
+
+    
+    const decipher = await crypto.createDecipher('aes-256-ecb', pass.pw);
+
+    let decrypted = await decipher.update(encripted, 'hex', 'utf8');
+    // console.log(encripted);
+    decrypted += await decipher.final('utf8');
+    let decrypted_kp = eval(decrypted);
+    console.log("dec_addr: ", decrypted_kp.getAddress());
+    
     logged = true;
     console.log('logged in, ', address);
     return address;
@@ -52,10 +66,6 @@ async function login(pass){
 
 async function ask_user(){
     let pw = rlsync.question('input password: ');
-    //this should unencrypt key_pair/hd_node
-    // let kp = cryptojs.AES.decrypt(key_pair.toString(), pw);
-    // key_pair = JSON.parse(kp.toString(cryptojs.enc.Utf8));
-    
     return pw
 }
 
@@ -89,14 +99,19 @@ async function get_pair(path){
 
 async function sign(tx){
     if (!logged){
-	await login(undefined);
+	await login(undefined);	
     }
     
     try {
 
 	let conf = rlsync.question('please input your password (for confirmation):');
-	// let kp = cryptojs.AES.decrypt(key_pair.toString(), pw);
-	// key_pair = JSON.parse(kp.toString(cryptojs.enc.Utf8));
+
+	const decipher = crypto.createDecipher('aes192', conf);
+
+	let decrypted = decipher.update(encripted_kp, 'hex', 'utf8');
+	decrypted += decipher.final('utf8');
+	console.log(decrypted);
+
 	
 	let txb = new btcjs.TransactionBuilder(network);
 	txb.inputs = tx.inputs;
@@ -125,16 +140,6 @@ ipc.serve(
 	
 	ipc.server.on('login', async function(data, socket){
 	    await login(data);
-
-	    //DEBUG
-	    
-	    const secret = 'abcdefg';
-	    const hash = crypto.createHmac('sha256', secret)
-                  .update('I love cupcakes')
-                  .digest('hex');
-	    console.log(hash);
-
-	    
 	    
 	    ipc.server.emit(
 		//signed transaction

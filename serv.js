@@ -45,11 +45,14 @@ async function login(pass){
 //    key_pair = cryptojs.AES.encrypt(key_pair.toString(), pw);
     //   key_pair = JSON.parse(key_pair.toString(cryptojs.enc.Utf8));
 
+    console.log("aa");
+    
     var encripted_kp = await crypto.createCipher('aes-256-ecb', pass.pw);
     // console.log(util.inspect(key_pair));
     let encripted = await encripted_kp.update(JSON.stringify(util.inspect(key_pair, false, null)), 'utf8', 'hex');
     encripted += await encripted_kp.final('hex');
 
+    console.log("bb");
     
     const decipher = await crypto.createDecipher('aes-256-ecb', pass.pw);
 
@@ -57,7 +60,11 @@ async function login(pass){
     // console.log(encripted);
     decrypted += await decipher.final('utf8');
     let decrypted_kp = eval(decrypted);
-    console.log("dec_addr: ", decrypted_kp.getAddress());
+    console.log("key_pair: ", util.inspect(key_pair, false, null));
+    console.log("dec_addr: ", util.inspect(decrypted_kp.getAddress(), false, null));
+    console.log("are they equal?: ", decrypted_kp == key_pair);
+    
+    console.log("cc");
     
     logged = true;
     console.log('logged in, ', address);
